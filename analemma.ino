@@ -8,15 +8,18 @@
 #include <TinyGPS.h>
 #include <SoftwareSerial.h>
 
+#include <Wire.h>
+#include <DS3231.h>
+
+
 // TODO:
 // Use hardware serial for GPS instead of software
 // Use lib for finding timezone
-// Use RTC clock
 // Add time adjusment from gps? meh probably
 
 
 // --------------   GPS    ------------------------
-SoftwareSerial serialGPS = SoftwareSerial(2, 3);
+SoftwareSerial serialGPS = SoftwareSerial(3, 4);
 TinyGPS gps; 
 
 // --------------   SERVO  ------------------------
@@ -31,6 +34,13 @@ const int offset = 1;   // Central European Time
 //const int offset = -7;  // Pacific Daylight Time (USA)
 //time_t prevDisplay = 0; // when the digital clock was displayed
 
+DS3231 clock;
+RTCDateTime dt;
+
+bool isGPSAvaliable() {
+  // TODO:
+  return false;
+}
 
 void setSystemTimeFromGPS() {
   Serial.println("Waiting for GPS time ... ");
@@ -53,24 +63,36 @@ void setSystemTimeFromGPS() {
         
         // when TinyGPS reports new data...
         unsigned long age;
-        int year;
-        byte month, day, hour, minute, second;
-        gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, NULL, &age);
+        int y;
+        byte mth, d, h, m, s;
+        gps.crack_datetime(&y, &mth, &d, &h, &m, &s, NULL, &age);
         
         if (age < 500) {
           // set the Time to the latest GPS reading
-          setTime(hour, minute, second, day, month, year);
+          setTime(h, m, s, d, mth, y);
           adjustTime(offset * SECS_PER_HOUR);
+
+          // TODO: timelib is used only for time adjument maybe it's possible to get rid it off?
+          clock.setDateTime(year(), month(), day(), hour(), minute(), second());
 
           time_set = true;
           
-          Serial.println("System time set");
+          Serial.println("System time set from GPS");
         }
       }
     }
   }
 
   digitalWrite(LED_BUILTIN, LOW);
+}
+
+void setSystemTimeFromPC() {
+  clock.setDateTime(__DATE__, __TIME__);
+  dt = clock.getDateTime();
+  
+  setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);  
+  
+  Serial.println("System time set from PC");
 }
 
 void adjustSystemTime(uint32_t start) {
@@ -98,9 +120,15 @@ void displaySystemClock(){
     
     char sz[32];
     sprintf(sz, "System: %02d/%02d/%02d %02d:%02d:%02d ",
-        month(), day(), year(), hour(), minute(), second());
+        day(), month(), year(), hour(), minute(), second());
     Serial.println(sz);  
   }  
+}
+
+void displayRTCClock() {
+  dt = clock.getDateTime();
+
+  Serial.println(String("RTC: ") + clock.dateFormat("d-m-Y H:i:s - l", dt));
 }
 
 void displayUTCTime() {
@@ -173,21 +201,38 @@ void setup() {
   Serial.begin(9600);
 
   Serial.println("Analemma software! Setup components");
-  
-  motor.write(0);
-  
-  serialGPS.begin(9600);
+
+  Serial.println("Initialize Motor");
   motor.attach(9);
-  
-//  setSystemTimeFromGPS();
+  motor.write(0);
+
+  Serial.println("Initialize RTC");
+  clock.begin();
+  // Disarm alarms and clear alarms for this example, because alarms is battery backed.
+  // Under normal conditions, the settings should be reset after power and restart microcontroller.
+  clock.armAlarm1(false);
+  clock.armAlarm2(false);
+  clock.clearAlarm1();
+  clock.clearAlarm2();
+
+  Serial.println("Initialize GPS");
+  serialGPS.begin(9600);
+
+  if (isGPSAvaliable()) {
+    setSystemTimeFromGPS();
+  } else {
+    setSystemTimeFromPC();
+  }
 
   serialGPS.end();
-  
+
+  Serial.println("Initialization complete");
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop() {
   displaySystemClock();
+  displayRTCClock();
 
   toggleMotor2();
   delay(1000);
