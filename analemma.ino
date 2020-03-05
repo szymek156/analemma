@@ -194,6 +194,8 @@ void toggleMotor2() {
       delay(DELAY);
   }
 
+  motor.write(stop);
+
   open = !open;
 }
 
