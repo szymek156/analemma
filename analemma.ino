@@ -1,6 +1,5 @@
 
 #include <LowPower.h>
-
 #include <Time.h>
 #include <TimeLib.h>
 
@@ -16,15 +15,63 @@
 // Use hardware serial for GPS instead of software
 // Use lib for finding timezone
 // Add time adjusment from gps? meh probably
-
+// TODO: dt.unixtime returns wrong value
 
 // --------------   GPS    ------------------------
 SoftwareSerial serialGPS = SoftwareSerial(3, 4);
-TinyGPS gps; 
+TinyGPS gps;
 
 // --------------   SERVO  ------------------------
 Servo motor;
 int position;
+
+// ----------------- SCHEDULE  -------------------
+
+enum EventType {
+  EveryDay
+};
+
+struct HatchEvent {
+  time_t openTime;
+  time_t closeTime;
+
+  TimeElements elements;
+
+  EventType type;
+
+};
+
+struct EveryDayEvent : HatchEvent {
+  EveryDayEvent(uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
+    time_t currentTime = now();
+    TimeElements currentEl;
+    breakTime(currentTime, currentEl);
+
+    openTime = makeTime(TimeElements{
+      .Second = currentEl.Second,
+      .Minute = minute,
+      .Hour = hour,
+      .Wday = dowInvalid, // Unused
+      .Day = currentEl.Day,
+      .Month = currentEl.Month,
+      .Year = currentEl.Year
+    });
+
+    // Event already passed
+    if (currentTime >= openTime) {
+      // Schedule for tomorrow
+      openTime += SECS_PER_DAY;
+    }
+
+    closeTime = openTime + openForSeconds;
+
+    elements.Minute = minute;
+    elements.Hour = hour;
+
+    type = EveryDay;
+  }
+};
+
 
 // --------------   TIME   ------------------------
 const int offset = 1;   // Central European Time
@@ -38,91 +85,107 @@ DS3231 clock;
 RTCDateTime dt;
 
 bool isGPSAvaliable() {
-  // TODO:
-  return false;
+  int tries = 12;
+
+  while (!serialGPS.available() && tries-- > 0) {
+    delay(100);
+  }
+
+  bool avaliable = tries > 0;
+
+  Serial.println("GPS Avaliable: " + String(avaliable));
+
+  return avaliable;
 }
 
 void setSystemTimeFromGPS() {
   Serial.println("Waiting for GPS time ... ");
-
-  bool led_status = true;  
   bool time_set = false;
 
-  digitalWrite(LED_BUILTIN, led_status);
-  
-  while (!time_set) {  
+  while (!time_set) {
     while (serialGPS.available()) {
       char symbol = serialGPS.read();
-      
-      Serial.print(symbol);
-      
-      if (gps.encode(symbol)) { // process gps messages        
-        led_status = !led_status;
-        digitalWrite(LED_BUILTIN, led_status);
 
-        
+      Serial.print(symbol);
+
+      digitalWrite(LED_BUILTIN, HIGH);
+
+      if (gps.encode(symbol)) { // process gps messages
         // when TinyGPS reports new data...
         unsigned long age;
         int y;
         byte mth, d, h, m, s;
         gps.crack_datetime(&y, &mth, &d, &h, &m, &s, NULL, &age);
-        
+
         if (age < 500) {
           // set the Time to the latest GPS reading
-          setTime(h, m, s, d, mth, y);
-          adjustTime(offset * SECS_PER_HOUR);
 
-          // TODO: timelib is used only for time adjument maybe it's possible to get rid it off?
-          clock.setDateTime(year(), month(), day(), hour(), minute(), second());
+          // TODO: adjust time
+          clock.setDateTime(y, mth, d, h + offset, m, s);
+
+          dt = clock.getDateTime();
+          setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
 
           time_set = true;
-          
+
           Serial.println("System time set from GPS");
         }
       }
     }
+    digitalWrite(LED_BUILTIN, LOW);
   }
 
-  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void setSystemTimeFromPC() {
   clock.setDateTime(__DATE__, __TIME__);
   dt = clock.getDateTime();
-  
-  setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);  
-  
+
+  setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
+
   Serial.println("System time set from PC");
 }
 
-void adjustSystemTime(uint32_t start) {
-  static const uint32_t MILLIS_CONV = 1000;
-  
-  // WDG SUCKS at time measure, so add some margin drift, it's not perfect but absolutely enough to our needs
-  static const uint32_t WDG_DRIFT_MS = 750;
-  static uint32_t execution = 0;
-  
-  execution += millis() - start + WDG_DRIFT_MS;
- 
-  uint32_t adjust = 8 * MILLIS_CONV + execution;
-  
-  adjustTime(adjust/MILLIS_CONV);
+bool rtcIsSet() {
+  dt = clock.getDateTime();
+  Serial.println(String("Current RTC time: ") + clock.dateFormat("d-m-Y H:i:s - l", dt));
 
-  execution = adjust % MILLIS_CONV;
+  return dt.year > 2019;
 }
 
-void displaySystemClock(){
+void setTime() {
+  if (rtcIsSet()) {
+    dt = clock.getDateTime();
+    setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
+
+    return;
+  }
+
+  Serial.println("Initialize GPS");
+  serialGPS.begin(9600);
+
+  if (isGPSAvaliable()) {
+    setSystemTimeFromGPS();
+  } else {
+    setSystemTimeFromPC();
+  }
+
+  serialGPS.end();
+}
+
+void displaySystemClock() {
   static time_t prevDisplay = 0; // when the digital clock was displayed
 
   // Display every second
   if (now() != prevDisplay) {
     prevDisplay = now();
-    
+
     char sz[32];
     sprintf(sz, "System: %02d/%02d/%02d %02d:%02d:%02d ",
-        day(), month(), year(), hour(), minute(), second());
-    Serial.println(sz);  
-  }  
+            day(), month(), year(), hour(), minute(), second());
+    Serial.println(sz);
+  }
 }
 
 void displayRTCClock() {
@@ -133,30 +196,30 @@ void displayRTCClock() {
 
 void displayUTCTime() {
   bool new_sentence = false;
-  
+
   while (!new_sentence) {
     while (serialGPS.available()) {
       char symbol = serialGPS.read();
-      
-      if (gps.encode(symbol)) { // process gps messages        
+
+      if (gps.encode(symbol)) { // process gps messages
         // when TinyGPS reports new data...
         unsigned long age;
         int year;
         byte month, day, hour, minute, second;
         gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, NULL, &age);
 
-        
+
         new_sentence = true;
 
         Serial.print("UTC:    ");
-        
-        if (age == TinyGPS::GPS_INVALID_AGE){
+
+        if (age == TinyGPS::GPS_INVALID_AGE) {
           Serial.println("********** ******** ");
         } else
         {
           char sz[32];
           sprintf(sz, "%02d/%02d/%02d %02d:%02d:%02d, age %lu ",
-              month, day, year, hour, minute, second, age);
+                  month, day, year, hour, minute, second, age);
           Serial.println(sz);
         }
       }
@@ -164,18 +227,6 @@ void displayUTCTime() {
   }
 }
 
-
-void powerDownFor(unsigned int milliseconds) {
-//   LowPower.powerSave(SLEEP_8S, ADC_OFF, BOD_OFF, TIMER2_ON);
-//   LowPower.powerStandby(SLEEP_8S, ADC_OFF, BOD_OFF);  
-   
-   LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);  
-//   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
-    
-//  LowPower.idle(SLEEP_8S, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, 
-//                SPI_OFF, USART0_OFF, TWI_OFF);
-
-}
 
 // --------------------------------------------------- Servo ----------------------------------------
 void toggleMotor2() {
@@ -190,8 +241,8 @@ void toggleMotor2() {
   int incr = open ? STEP : -STEP;
 
   for (int pos = start; pos != stop; pos += incr) {
-      motor.write(pos);
-      delay(DELAY);
+    motor.write(pos);
+    delay(DELAY);
   }
 
   motor.write(stop);
@@ -199,7 +250,54 @@ void toggleMotor2() {
   open = !open;
 }
 
-void setup() {  
+
+// --------------------------------------------- Schedule ------------------------------------------
+void addEvent(uint8_t hour, uint8_t minute, int openForSeconds) {
+
+  EveryDayEvent event(hour, minute, openForSeconds);
+
+  Serial.println("Hatch open " + timet2str(event.openTime));
+
+  Serial.println("Hatch close " + timet2str(event.closeTime));
+
+  //  HatchEvent event(0, month, day, hour, minute, second, openForSeconds);
+}
+
+void makeSchedule() {
+  uint32_t start = millis();
+
+  dt = clock.getDateTime();
+
+  addEvent(21, 37, 2 * SECS_PER_MIN);
+
+
+
+  Serial.println("Schedule took[ms]: " + String(millis() - start));
+}
+
+// #######################################################################################
+
+
+String timet2str(time_t point) {
+  TimeElements el;
+  breakTime(point, el);
+  static char sz[32];
+
+  sprintf(sz, "%4d/%02d/%02d %02d:%02d:%02d ",
+          tmYearToCalendar(el.Year), el.Month, el.Day, el.Hour, el.Minute, el.Second);
+
+  return sz;
+}
+
+void powerDownFor(unsigned int milliseconds) {
+  LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+  //   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+}
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+
   Serial.begin(9600);
 
   Serial.println("Analemma software! Setup components");
@@ -207,6 +305,8 @@ void setup() {
   Serial.println("Initialize Motor");
   motor.attach(9);
   motor.write(0);
+  // Give some time to reach 0 position
+  delay(1500);
 
   Serial.println("Initialize RTC");
   clock.begin();
@@ -217,29 +317,24 @@ void setup() {
   clock.clearAlarm1();
   clock.clearAlarm2();
 
-  Serial.println("Initialize GPS");
-  serialGPS.begin(9600);
+  setTime();
 
-  if (isGPSAvaliable()) {
-    setSystemTimeFromGPS();
-  } else {
-    setSystemTimeFromPC();
-  }
-
-  serialGPS.end();
+  makeSchedule();
 
   Serial.println("Initialization complete");
-  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 }
 
 void loop() {
-  displaySystemClock();
   displayRTCClock();
 
   toggleMotor2();
   delay(1000);
-  
-  // Has to be last thing in the loop
-//  powerDownFor(30 * 1000);
 
+  // Has to be last thing in the loop
+  //  powerDownFor(30 * 1000);
+
+  // Update system time from RTC
+  dt = clock.getDateTime();
+  setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
 }
