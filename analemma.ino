@@ -15,7 +15,10 @@
 // Use hardware serial for GPS instead of software
 // Use lib for finding timezone
 // Add time adjusment from gps? meh probably
-// TODO: dt.unixtime returns wrong value
+// dt.unixtime returns wrong value
+// Add hatch event every month
+// Add hatch event every week
+// Handle leap days in yearly event
 
 // --------------   GPS    ------------------------
 SoftwareSerial serialGPS = SoftwareSerial(3, 4);
@@ -23,17 +26,14 @@ TinyGPS gps;
 
 // --------------   SERVO  ------------------------
 Servo motor;
-int position;
-
-// ----------------- SCHEDULE  -------------------
-
-enum EventType {
-  EveryDay,
-  EveryYear
+enum Toggle {
+  Close = 0,
+  Open = 1
 };
 
-struct HatchEvent {
 
+// ----------------- SCHEDULE  -------------------
+struct HatchEvent {
   HatchEvent() {
     openTime = -1;
     closeTime = -1;  
@@ -61,44 +61,7 @@ struct HatchEvent {
     }
 
     closeTime = openTime + openForSeconds;
-
-    elements.Minute = minute;
-    elements.Hour = hour;
-
-    type = EveryDay;
   }
-
-//  HatchEvent(uint8_t day, uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
-//    time_t currentTime = now();
-//    TimeElements currentEl;
-//    breakTime(currentTime, currentEl);
-//
-//    openTime = makeTime(TimeElements{
-//      .Second = 0,
-//      .Minute = minute,
-//      .Hour = hour,
-//      .Wday = dowInvalid, // Unused
-//      .Day = day,
-//      .Month = currentEl.Month,
-//      .Year = currentEl.Year
-//    });
-//
-//    // Event already passed
-//    if (currentTime >= openTime) {
-//      // Schedule for next month
-//      // TODO: leap years?
-//      openTime += SECS_PER_YEAR;
-//    }
-//
-//    closeTime = openTime + openForSeconds;
-//
-//    elements.Minute = minute;
-//    elements.Hour = hour;
-//    elements.Day = day;
-//    elements.Month = month;
-//
-//    type = EveryMonth;
-//  }
   
   HatchEvent(uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
     time_t currentTime = now();
@@ -123,22 +86,10 @@ struct HatchEvent {
     }
 
     closeTime = openTime + openForSeconds;
-
-    elements.Minute = minute;
-    elements.Hour = hour;
-    elements.Day = day;
-    elements.Month = month;
-
-    type = EveryYear;
   }
   
   time_t openTime;
   time_t closeTime;
-
-  TimeElements elements;
-
-  EventType type;
-
 };
 
 HatchEvent nextEvent;
@@ -179,7 +130,7 @@ void setSystemTimeFromGPS() {
       Serial.print(symbol);
 
       digitalWrite(LED_BUILTIN, HIGH);
-
+     
       if (gps.encode(symbol)) { // process gps messages
         // when TinyGPS reports new data...
         unsigned long age;
@@ -187,6 +138,7 @@ void setSystemTimeFromGPS() {
         byte mth, d, h, m, s;
         gps.crack_datetime(&y, &mth, &d, &h, &m, &s, NULL, &age);
 
+  
         if (age < 500) {
           // set the Time to the latest GPS reading
 
@@ -258,57 +210,29 @@ void displaySystemClock() {
   }
 }
 
-void displayRTCClock() {
+void refreshDate() {
   dt = clock.getDateTime();
-
+  setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
+  
   Serial.println(String("RTC: ") + clock.dateFormat("d-m-Y H:i:s - l", dt));
-}
-
-void displayUTCTime() {
-  bool new_sentence = false;
-
-  while (!new_sentence) {
-    while (serialGPS.available()) {
-      char symbol = serialGPS.read();
-
-      if (gps.encode(symbol)) { // process gps messages
-        // when TinyGPS reports new data...
-        unsigned long age;
-        int year;
-        byte month, day, hour, minute, second;
-        gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, NULL, &age);
-
-
-        new_sentence = true;
-
-        Serial.print("UTC:    ");
-
-        if (age == TinyGPS::GPS_INVALID_AGE) {
-          Serial.println("********** ******** ");
-        } else
-        {
-          char sz[32];
-          sprintf(sz, "%02d/%02d/%02d %02d:%02d:%02d, age %lu ",
-                  month, day, year, hour, minute, second, age);
-          Serial.println(sz);
-        }
-      }
-    }
-  }
 }
 
 
 // --------------------------------------------------- Servo ----------------------------------------
-void toggleMotor2() {
+void toggleMotor(Toggle toggle) {
+  if (toggle == Open) {
+    Serial.println("Open hatch");
+  } else {
+    Serial.println("Close hatch");
+  }
+  
   // Step and delay are set to motor opreate quietly
-  static bool open = true;
-
   static const int STEP = 1;
   static const int DELAY = 40;
 
-  int start = !open * 180;
-  int stop = open * 180;
-  int incr = open ? STEP : -STEP;
+  int start = !toggle * 180;
+  int stop = toggle * 180;
+  int incr = toggle? STEP : -STEP;
 
   for (int pos = start; pos != stop; pos += incr) {
     motor.write(pos);
@@ -316,8 +240,6 @@ void toggleMotor2() {
   }
 
   motor.write(stop);
-
-  open = !open;
 }
 
 
@@ -332,7 +254,6 @@ void setNextEvent(const HatchEvent &event) {
 }
 
 void addEvent(uint8_t hour, uint8_t minute, int openForSeconds) {
-
   HatchEvent event(hour, minute, openForSeconds);
   setNextEvent(event);
 }
@@ -342,11 +263,41 @@ void addEvent(uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint32_t
   setNextEvent(event);
 }
 
+void setAlarms() {
+  TimeElements elements;
+  breakTime(nextEvent.openTime, elements);
+
+  clock.setAlarm2(elements.Day, elements.Hour, 
+    elements.Minute, DS3231_MATCH_DT_H_M);
+
+  breakTime(nextEvent.closeTime, elements);
+
+  clock.setAlarm1(elements.Day, elements.Hour, 
+    elements.Minute, elements.Second, DS3231_MATCH_DT_H_M_S);
+}
+
+void makeTestSchedule() {
+  uint32_t start = millis();
+  
+  // Update globals
+  refreshDate();
+  nextEvent = HatchEvent();
+
+  addEvent(dt.hour, dt.minute + 1, 30);
+
+  setAlarms();
+  
+  Serial.println("Next open " + timet2str(nextEvent.openTime));
+  Serial.println("Next close " + timet2str(nextEvent.closeTime));
+
+  Serial.println("Schedule took[ms]: " + String(millis() - start));
+}
+
 void makeSchedule() {
   uint32_t start = millis();
 
   // Update globals
-  dt = clock.getDateTime();
+  refreshDate();
   nextEvent = HatchEvent();
 
   // Select closest event relative to current time
@@ -354,10 +305,10 @@ void makeSchedule() {
 
   addEvent(3, 10, 6, 0, 2 * SECS_PER_HOUR); 
 
-
+  setAlarms();
+  
 
   Serial.println("Next open " + timet2str(nextEvent.openTime));
-
   Serial.println("Next close " + timet2str(nextEvent.closeTime));
   
   Serial.println("Schedule took[ms]: " + String(millis() - start));
@@ -377,11 +328,6 @@ String timet2str(time_t point) {
   return sz;
 }
 
-void powerDownFor(unsigned int milliseconds) {
-  LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
-  //   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
-}
-
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
@@ -390,13 +336,13 @@ void setup() {
 
   Serial.println("Analemma software! Setup components");
 
-  Serial.println("Initialize Motor");
+  Serial.println("Initialize Motor...");
   motor.attach(9);
   motor.write(0);
   // Give some time to reach 0 position
   delay(1500);
 
-  Serial.println("Initialize RTC");
+  Serial.println("Initialize RTC...");
   clock.begin();
   // Disarm alarms and clear alarms for this example, because alarms is battery backed.
   // Under normal conditions, the settings should be reset after power and restart microcontroller.
@@ -407,22 +353,30 @@ void setup() {
 
   setTime();
 
-  makeSchedule();
+  makeTestSchedule();
 
   Serial.println("Initialization complete");
   digitalWrite(LED_BUILTIN, LOW);
 }
 
 void loop() {
-  displayRTCClock();
+//    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
 
-  toggleMotor2();
+  refreshDate();
+
+  if (clock.isAlarm1()) {
+    clock.clearAlarm1();
+    
+    toggleMotor(Close);
+
+    makeTestSchedule();
+  }
+  
+  if (clock.isAlarm2()) {
+    clock.clearAlarm2();
+    
+    toggleMotor(Open);
+  }
+  
   delay(1000);
-
-  // Has to be last thing in the loop
-  //  powerDownFor(30 * 1000);
-
-  // Update system time from RTC
-  dt = clock.getDateTime();
-  setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
 }
