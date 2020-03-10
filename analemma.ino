@@ -28,27 +28,24 @@ int position;
 // ----------------- SCHEDULE  -------------------
 
 enum EventType {
-  EveryDay
+  EveryDay,
+  EveryYear
 };
 
 struct HatchEvent {
-  time_t openTime;
-  time_t closeTime;
 
-  TimeElements elements;
-
-  EventType type;
-
-};
-
-struct EveryDayEvent : HatchEvent {
-  EveryDayEvent(uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
+  HatchEvent() {
+    openTime = -1;
+    closeTime = -1;  
+  }
+  
+  HatchEvent(uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
     time_t currentTime = now();
     TimeElements currentEl;
     breakTime(currentTime, currentEl);
 
     openTime = makeTime(TimeElements{
-      .Second = currentEl.Second,
+      .Second = 0,
       .Minute = minute,
       .Hour = hour,
       .Wday = dowInvalid, // Unused
@@ -70,8 +67,81 @@ struct EveryDayEvent : HatchEvent {
 
     type = EveryDay;
   }
+
+//  HatchEvent(uint8_t day, uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
+//    time_t currentTime = now();
+//    TimeElements currentEl;
+//    breakTime(currentTime, currentEl);
+//
+//    openTime = makeTime(TimeElements{
+//      .Second = 0,
+//      .Minute = minute,
+//      .Hour = hour,
+//      .Wday = dowInvalid, // Unused
+//      .Day = day,
+//      .Month = currentEl.Month,
+//      .Year = currentEl.Year
+//    });
+//
+//    // Event already passed
+//    if (currentTime >= openTime) {
+//      // Schedule for next month
+//      // TODO: leap years?
+//      openTime += SECS_PER_YEAR;
+//    }
+//
+//    closeTime = openTime + openForSeconds;
+//
+//    elements.Minute = minute;
+//    elements.Hour = hour;
+//    elements.Day = day;
+//    elements.Month = month;
+//
+//    type = EveryMonth;
+//  }
+  
+  HatchEvent(uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
+    time_t currentTime = now();
+    TimeElements currentEl;
+    breakTime(currentTime, currentEl);
+
+    openTime = makeTime(TimeElements{
+      .Second = 0,
+      .Minute = minute,
+      .Hour = hour,
+      .Wday = dowInvalid, // Unused
+      .Day = day,
+      .Month = month,
+      .Year = currentEl.Year
+    });
+
+    // Event already passed
+    if (currentTime >= openTime) {
+      // Schedule for next year
+      // TODO: leap years?
+      openTime += SECS_PER_YEAR;
+    }
+
+    closeTime = openTime + openForSeconds;
+
+    elements.Minute = minute;
+    elements.Hour = hour;
+    elements.Day = day;
+    elements.Month = month;
+
+    type = EveryYear;
+  }
+  
+  time_t openTime;
+  time_t closeTime;
+
+  TimeElements elements;
+
+  EventType type;
+
 };
 
+HatchEvent nextEvent;
 
 // --------------   TIME   ------------------------
 const int offset = 1;   // Central European Time
@@ -252,26 +322,44 @@ void toggleMotor2() {
 
 
 // --------------------------------------------- Schedule ------------------------------------------
+void setNextEvent(const HatchEvent &event) {
+  Serial.println("Hatch open " + timet2str(event.openTime));
+  Serial.println("Hatch close " + timet2str(event.closeTime));
+  
+  if (event.openTime < nextEvent.openTime) {
+    nextEvent = event;
+  }
+}
+
 void addEvent(uint8_t hour, uint8_t minute, int openForSeconds) {
 
-  EveryDayEvent event(hour, minute, openForSeconds);
+  HatchEvent event(hour, minute, openForSeconds);
+  setNextEvent(event);
+}
 
-  Serial.println("Hatch open " + timet2str(event.openTime));
-
-  Serial.println("Hatch close " + timet2str(event.closeTime));
-
-  //  HatchEvent event(0, month, day, hour, minute, second, openForSeconds);
+void addEvent(uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint32_t openForSeconds) {
+  HatchEvent event(month, day, hour, minute, openForSeconds);
+  setNextEvent(event);
 }
 
 void makeSchedule() {
   uint32_t start = millis();
 
+  // Update globals
   dt = clock.getDateTime();
+  nextEvent = HatchEvent();
 
+  // Select closest event relative to current time
   addEvent(21, 37, 2 * SECS_PER_MIN);
 
+  addEvent(3, 10, 6, 0, 2 * SECS_PER_HOUR); 
 
 
+
+  Serial.println("Next open " + timet2str(nextEvent.openTime));
+
+  Serial.println("Next close " + timet2str(nextEvent.closeTime));
+  
   Serial.println("Schedule took[ms]: " + String(millis() - start));
 }
 
