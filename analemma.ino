@@ -104,6 +104,7 @@ const int offset = 1;   // Central European Time
 
 DS3231 clock;
 RTCDateTime dt;
+bool isAlarm = false;
 
 bool isGPSAvaliable() {
   int tries = 12;
@@ -240,6 +241,7 @@ void toggleMotor(Toggle toggle) {
   }
 
   motor.write(stop);
+  delay(DELAY);
 }
 
 
@@ -328,22 +330,28 @@ String timet2str(time_t point) {
   return sz;
 }
 
+void alarmFunction()
+{
+  Serial.println("*** INT 0 ***");
+  isAlarm = true;
+}
+
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(2, INPUT_PULLUP);
   digitalWrite(LED_BUILTIN, HIGH);
 
   Serial.begin(9600);
 
   Serial.println("Analemma software! Setup components");
 
-  Serial.println("Initialize Motor...");
-  motor.attach(9);
-  motor.write(0);
-  // Give some time to reach 0 position
-  delay(1500);
-
   Serial.println("Initialize RTC...");
   clock.begin();
+
+  // RTC is spamming with signals at startup
+  clock.enable32kHz(false);
+  clock.enableOutput(false);
+    
   // Disarm alarms and clear alarms for this example, because alarms is battery backed.
   // Under normal conditions, the settings should be reset after power and restart microcontroller.
   clock.armAlarm1(false);
@@ -351,32 +359,51 @@ void setup() {
   clock.clearAlarm1();
   clock.clearAlarm2();
 
+  
+  attachInterrupt(0, alarmFunction, FALLING);
+
+  Serial.println("Initialize Motor...");
+  motor.attach(9);
+  motor.write(0);
+  // Give some time to reach 0 position
+  delay(1500);
+
+  
   setTime();
 
   makeTestSchedule();
 
+  isAlarm = false;
   Serial.println("Initialization complete");
+  Serial.flush();
   digitalWrite(LED_BUILTIN, LOW);
 }
 
 void loop() {
-//    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+  Serial.println("Sleep...");
+  Serial.flush();
+  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
 
   refreshDate();
 
-  if (clock.isAlarm1()) {
-    clock.clearAlarm1();
+  if (isAlarm) {
+    isAlarm = false;
+     
+    Serial.println("isAlarm is set");
     
-    toggleMotor(Close);
-
-    makeTestSchedule();
-  }
+    if (clock.isAlarm1()) {
+      clock.clearAlarm1();
+      
+      toggleMotor(Close);
   
-  if (clock.isAlarm2()) {
-    clock.clearAlarm2();
+      makeTestSchedule();
+    }
     
-    toggleMotor(Open);
+    if (clock.isAlarm2()) {
+      clock.clearAlarm2();
+      
+      toggleMotor(Open);
+    }  
+   
   }
-  
-  delay(1000);
 }

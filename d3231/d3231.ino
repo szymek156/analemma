@@ -13,7 +13,7 @@ DS3231 clock;
 RTCDateTime dt;
 boolean isAlarm = false;
 boolean alarmState = false;
-int alarmLED = 4;
+//int alarmLED = 4;/
 
 void alarmFunction()
 {
@@ -28,7 +28,9 @@ void setup()
   // Initialize DS3231
   Serial.println("Initialize DS3231");;
   clock.begin();
- 
+  clock.enable32kHz(false);
+  clock.enableOutput(false);  
+  
   // Disarm alarms and clear alarms for this example, because alarms is battery backed.
   // Under normal conditions, the settings should be reset after power and restart microcontroller.
   clock.armAlarm1(false);
@@ -43,15 +45,14 @@ void setup()
   // setAlarm1(Date or Day, Hour, Minute, Second, Mode, Armed = true)
   clock.setAlarm1(0, 0, 0, 10, DS3231_MATCH_S);
 
-
   
-//  pinMode(2, INPUT_PULLUP);
+  pinMode(2, INPUT_PULLUP);
   
   // Attach Interrput 0. In Arduino UNO connect DS3231 INT to Arduino Pin 2
   attachInterrupt(0, alarmFunction, FALLING);
 
   // Setup LED Pin
-  pinMode(alarmLED, OUTPUT);
+//  pinMode(alarmLED, OUTPUT);/
 }
 
 void loop()
@@ -61,7 +62,7 @@ void loop()
 
   if (isAlarm)
   {
-    digitalWrite(alarmLED, alarmState);
+//    digitalWrite(alarmLED, alarmState);/
     alarmState = !alarmState;
     clock.clearAlarm1();
   } 
