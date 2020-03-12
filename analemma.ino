@@ -31,6 +31,7 @@ enum Toggle {
   Open = 1
 };
 
+int motorCounter = 0;
 
 // ----------------- SCHEDULE  -------------------
 struct HatchEvent {
@@ -221,10 +222,12 @@ void refreshDate() {
 
 // --------------------------------------------------- Servo ----------------------------------------
 void toggleMotor(Toggle toggle) {
+  motorCounter++;
+  
   if (toggle == Open) {
-    Serial.println("Open hatch");
+    Serial.println("Open hatch " + String(motorCounter));
   } else {
-    Serial.println("Close hatch");
+    Serial.println("Close hatch " + String(motorCounter));
   }
   
   // Step and delay are set to motor opreate quietly
