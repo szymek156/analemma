@@ -145,6 +145,7 @@ void setSystemTimeFromGPS() {
           // set the Time to the latest GPS reading
 
           // TODO: adjust time
+          //TODO: +offset overflows: 25:03
           clock.setDateTime(y, mth, d, h + offset, m, s);
 
           dt = clock.getDateTime();
@@ -179,21 +180,22 @@ bool rtcIsSet() {
 }
 
 void setTime() {
-  if (rtcIsSet()) {
-    dt = clock.getDateTime();
-    setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
-
-    return;
-  }
+//  if (rtcIsSet()) {
+//    dt = clock.getDateTime();
+//    setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
+//
+//    return;
+//  }
 
   Serial.println("Initialize GPS");
   serialGPS.begin(9600);
 
   if (isGPSAvaliable()) {
     setSystemTimeFromGPS();
-  } else {
-    setSystemTimeFromPC();
-  }
+  } 
+//  else {
+//    setSystemTimeFromPC();
+//  }
 
   serialGPS.end();
 }
@@ -346,7 +348,7 @@ void setup() {
 
   Serial.begin(9600);
 
-  Serial.println("Analemma software! Setup components");
+  Serial.println("Analemma software! Setup components!");
 
   Serial.println("Initialize RTC...");
   clock.begin();
@@ -366,7 +368,7 @@ void setup() {
   attachInterrupt(0, alarmFunction, FALLING);
 
   Serial.println("Initialize Motor...");
-  motor.attach(9);
+  motor.attach(5);
   motor.write(0);
   // Give some time to reach 0 position
   delay(1500);
