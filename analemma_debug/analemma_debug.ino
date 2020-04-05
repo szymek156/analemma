@@ -3,7 +3,6 @@
 #include <TimeLib.h>
 
 #include <Servo.h>
-#include <TinyGPS.h>
 #include <SoftwareSerial.h>
 
 #include <Wire.h>
@@ -30,11 +29,11 @@
 // Add hatch event every month
 // Add hatch event every week
 // Handle leap days in yearly event
-// days saving hour?
+// Play around with 
+// https://www.nongnu.org/avr-libc/user-manual/group__avr__power.html
 
 // --------------   GPS    ------------------------
 SoftwareSerial serialGPS = SoftwareSerial(3, 4);
-TinyGPS gps;
 
 // --------------   SERVO  ------------------------
 Servo motor;
@@ -195,6 +194,10 @@ void setAlarms() {
     elements.Minute, elements.Second, DS3231_MATCH_DT_H_M_S);
 }
 
+void addEvents() {
+  addEvent(dt.hour, dt.minute + 1, 30);
+}
+
 void makeTestSchedule() {
   scheduleCounter++;
   
@@ -204,7 +207,7 @@ void makeTestSchedule() {
   refreshDate();
   nextEvent = HatchEvent();
 
-  addEvent(dt.hour, dt.minute + 1, 30);
+  addEvents();
 
   setAlarms();
 
@@ -216,8 +219,6 @@ void makeTestSchedule() {
 }
 
 // #######################################################################################
-
-
 String timet2str(time_t point) {
   TimeElements el;
   breakTime(point, el);
@@ -291,39 +292,42 @@ void updateJournal() {
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
+  // Enable pullup resistor for RTC interrupt
   pinMode(2, INPUT_PULLUP);
   digitalWrite(LED_BUILTIN, HIGH);
 
-  Serial.begin(9600);
-
-  Serial.println("Analemma software! Setup components!");
-
-  Serial.println("Reducing Clock speed, serial goes to 1200 baud rate...");
-  Serial.flush();
   // Divide clock by 8
   CLKPR = (1 << CLKPCE);
   CLKPR = (0 << CLKPS3) | (0 << CLKPS2) | (1 << CLKPS1) | (1 << CLKPS0);
+  // From now on rates are divided by 8 and delays multiplied by 8
   
+  // Wait a little to settle.
+  delay(100);
+
+  // In real it's 1200
+  Serial.begin(9600);
+
+  Serial.println("Analemma software! Setup components!");
+ 
   Serial.println("Initialize Motor...");
   motor.attach(5);
-  // PWM prescaler
+  // PWM prescaler, needs to be updated after clock division, and after attaching
   TCCR1B &= ~((1 << CS11) | (1 << CS12));
-  TCCR1B |= (1 << CS10);
-
+  TCCR1B |= (1 << CS10); 
+    
   motor.write(0);
-//  delay(1500);/
+  delay(500);
 
   readJournal();
   
   Serial.println("Initialize RTC...");
   clock.begin();
 
-  // RTC is spamming with signals at startup
+  // RTC is spamming signals at startup
   clock.enable32kHz(false);
   clock.enableOutput(false);
     
-  // Disarm alarms and clear alarms for this example, because alarms is battery backed.
-  // Under normal conditions, the settings should be reset after power and restart microcontroller.
+  // Disarm and clear alarms because they are battery backed.
   clock.armAlarm1(false);
   clock.armAlarm2(false);
   clock.clearAlarm1();
@@ -351,8 +355,6 @@ void loop() {
 
   if (isAlarm) {
     isAlarm = false;
-     
-    Serial.println("isAlarm is set");
     
     if (clock.isAlarm1()) {
       clock.clearAlarm1();

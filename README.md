@@ -7,9 +7,10 @@ https://andreasrohner.at/posts/Electronics/How-to-fix-device-permissions-for-the
 ## Check validity
 sudo ./avrdude -c usbasp -p atmega328p -C ./avrdude.conf
 
-## Disable brown out detection, reduce clock to 1MHz:
-sudo ./avrdude -c usbasp -p atmega328p -C ./avrdude.conf -U lfuse:w:0x62:m -U hfuse:w:0xdb:m -U efuse:w:0xff:m 
+## Disable brown out detection:
+sudo ./avrdude -c usbasp -p atmega328p -C ./avrdude.conf -U lfuse:w:0xff:m -U hfuse:w:0xda:m -U efuse:w:0xfe:m 
 
+Clock reduction (div 8) is done at runtime 
 Set terminal baud rate to 1200 (/8 times slower)
 
 ## Default pro mini 3.3V 8MHz version config 
@@ -18,16 +19,6 @@ sudo ./avrdude -c usbasp -p atmega328p -C ./avrdude.conf -U lfuse:w:0xff:m -U hf
 ## Change permissions for ISP (lazy ass):
 lsusb
 sudo chmod 666 /dev/bus/usb/002/121
-
-#To be verified
- CLKPS3..0: Clock Prescaler Select Bits 3 - 0
-
-# brown out disabled no clock division, bootloader untouched 
-avrdude: safemode: Fuses OK (E:FE, H:D9, L:FF)
-
-# internal clock source selected, division enabled
-avrdude: safemode: Fuses OK (E:FE, H:D9, L:62)
-
 
 Add 1MHz version to IDE:
 Add  to 
@@ -47,7 +38,7 @@ promini1MhzInt.build.variant=eightanaloginputs
 - Schedule is validated
 - Production SW is uploaded (blinks twice at startup)
 - BOD is disabled, or set to 1.5v
-- Freq is set to 1MHz
+- Freq is set to 1MHz 
 - Power led is removed
 - Voltage regulator is removed
 - Everything is grounded
