@@ -9,30 +9,41 @@
 
 #include <Servo.h>
 
-Servo myservo;  // create servo object to control a servo
+Servo myservo;  /// create servo object to control a s/ervo
 // twelve servo objects can be created on most boards
 
 int pos = 0;    // variable to store the servo position
-
+int lol = 5;
 void setup() {
-  myservo.attach(9);  // attaches the servo on pin 9 to the servo object
+  myservo.attach(9);  // /attaches the servo on pin 9 to /the servo object
+  TCCR1B &= ~((1 << CS11) | (1 << CS12));
+  TCCR1B |= (1 << CS10);
+
+//  pinMode(5, OUTPUT);
 }
 
-void loop() {
-  //delay(1000); 
+void loop() { 
 
-//  myservo.write(180);
-//  delay(1000);
-//  myservo.write(0);
-//  delay(1000);
-  
+//  for(int i=0; i<255; i++){
+//    analogWrite(lol, i);
+//    delay(50);
+//  }
+//
+//  for(int i=254; i>0; i--){
+//    analogWrite(lol, i);
+//    delay(50);
+//  }
+//  
+
   for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
     // in steps of 1 degree
     myservo.write(pos);              // tell servo to go to position in variable 'pos'
-    delay(40);                       // waits 15ms for the servo to reach the position
+//    analogWrite(5, pos);
+    delay(5);                       // waits 15ms for the servo to reach the position
   }
   for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
     myservo.write(pos);              // tell servo to go to position in variable 'pos'
-    delay(40);                       // waits 15ms for the servo to reach the position
+//    analogWrite(5, pos);
+    delay(5);                       // waits 15ms for the servo to reach the position
   }
 }
