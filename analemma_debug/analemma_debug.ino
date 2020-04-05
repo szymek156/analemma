@@ -1,5 +1,3 @@
-
-
 #include <LowPower.h>
 #include <Time.h>
 #include <TimeLib.h>
@@ -130,113 +128,6 @@ DS3231 clock;
 RTCDateTime dt;
 bool isAlarm = false;
 
-bool isGPSAvaliable() {
-  int tries = 12;
-
-  while (!serialGPS.available() && tries-- > 0) {
-    delay(100);
-  }
-
-  bool avaliable = tries > 0;
-
-  Serial.println("GPS Avaliable: " + String(avaliable));
-
-  return avaliable;
-}
-
-void setSystemTimeFromGPS() {
-  Serial.println("Waiting for GPS time ... ");
-  bool time_set = false;
-
-  while (!time_set) {
-    while (serialGPS.available()) {
-      char symbol = serialGPS.read();
-
-      Serial.print(symbol);
-
-      digitalWrite(LED_BUILTIN, HIGH);
-     
-      if (gps.encode(symbol)) { // process gps messages
-        // when TinyGPS reports new data...
-        unsigned long age;
-        int y;
-        byte mth, d, h, m, s;
-        gps.crack_datetime(&y, &mth, &d, &h, &m, &s, NULL, &age);
-
-  
-        if (age < 500) {
-          // set the Time to the latest GPS reading
-
-          // TODO: adjust time
-          //TODO: +offset overflows: 25:03
-          clock.setDateTime(y, mth, d, h + offset, m, s);
-
-          dt = clock.getDateTime();
-          setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
-
-          time_set = true;
-
-          Serial.println("System time set from GPS");
-        }
-      }
-    }
-    digitalWrite(LED_BUILTIN, LOW);
-  }
-
-  digitalWrite(LED_BUILTIN, HIGH);
-}
-
-void setSystemTimeFromPC() {
-  clock.setDateTime(__DATE__, __TIME__);
-  dt = clock.getDateTime();
-
-  setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
-
-  Serial.println("System time set from PC");
-}
-
-bool rtcIsSet() {
-  dt = clock.getDateTime();
-  Serial.println(String("Current RTC time: ") + clock.dateFormat("d-m-Y H:i:s - l", dt));
-
-  return dt.year > 2019;
-}
-
-void setTime() {
-//  if (rtcIsSet()) {
-//    dt = clock.getDateTime();
-//    setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
-//
-//    return;
-//  }
-
-  Serial.println("Initialize GPS");
-  serialGPS.begin(9600);
-
-  if (isGPSAvaliable()) {
-    setSystemTimeFromGPS();
-  } 
-//  else {
-//    setSystemTimeFromPC();
-//  }
-
-  serialGPS.end();
-}
-
-void displaySystemClock() {
-  static time_t prevDisplay = 0; // when the digital clock was displayed
-
-  // Display every second
-  if (now() != prevDisplay) {
-    prevDisplay = now();
-
-    char sz[32];
-    sprintf(sz, "System: %02d/%02d/%02d %02d:%02d:%02d ",
-            day(), month(), year(), hour(), minute(), second());
-    Serial.println(sz);
-  }
-}
-
 void refreshDate() {
   dt = clock.getDateTime();
   setTime(dt.hour, dt.minute, dt.second, dt.day, dt.month, dt.year);
@@ -255,7 +146,7 @@ void toggleMotor(Toggle toggle) {
   
   // Step and delay are set to motor opreate quietly
   static const int STEP = 1;
-  static const int DELAY = 40;
+  static const int DELAY = 8;
 
   int start = !toggle * 180;
   int stop = toggle * 180;
@@ -407,6 +298,21 @@ void setup() {
 
   Serial.println("Analemma software! Setup components!");
 
+  Serial.println("Reducing Clock speed, serial goes to 1200 baud rate...");
+  Serial.flush();
+  // Divide clock by 8
+  CLKPR = (1 << CLKPCE);
+  CLKPR = (0 << CLKPS3) | (0 << CLKPS2) | (1 << CLKPS1) | (1 << CLKPS0);
+  
+  Serial.println("Initialize Motor...");
+  motor.attach(5);
+  // PWM prescaler
+  TCCR1B &= ~((1 << CS11) | (1 << CS12));
+  TCCR1B |= (1 << CS10);
+
+  motor.write(0);
+//  delay(1500);/
+
   readJournal();
   
   Serial.println("Initialize RTC...");
@@ -425,17 +331,12 @@ void setup() {
 
   attachInterrupt(0, alarmFunction, FALLING);
 
-  Serial.println("Initialize Motor...");
-  motor.attach(5);
-  motor.write(0);
-  // Give some time to reach 0 position
-  delay(1500);
-
-  setTime();
+  refreshDate();
 
   makeTestSchedule();
 
   isAlarm = false;
+
   Serial.println("Initialization complete");
   Serial.flush();
   digitalWrite(LED_BUILTIN, LOW);

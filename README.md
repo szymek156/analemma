@@ -62,3 +62,4 @@ internal osc, div by 8
 avrdude: safemode: Fuses OK (E:FF, H:DB, L:62)
 
 
+str94

@@ -16,6 +16,12 @@ int pos = 0;    // variable to store the servo position
 int lol = 5;
 void setup() {
   myservo.attach(9);  // /attaches the servo on pin 9 to /the servo object
+
+  // Divide clock by 8
+  CLKPR = (1 << CLKPCE);
+  CLKPR = (0 << CLKPS3) | (0 << CLKPS2) | (1 << CLKPS1) | (1 << CLKPS0);
+  
+  // PWM changes:
   TCCR1B &= ~((1 << CS11) | (1 << CS12));
   TCCR1B |= (1 << CS10);
 
