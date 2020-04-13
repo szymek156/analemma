@@ -15,7 +15,7 @@ Servo myservo;  /// create servo object to control a s/ervo
 int pos = 0;    // variable to store the servo position
 int lol = 5;
 void setup() {
-  myservo.attach(9);  // /attaches the servo on pin 9 to /the servo object
+  myservo.attach(5);  // /attaches the servo on pin 9 to /the servo object
 
   // Divide clock by 8
   CLKPR = (1 << CLKPCE);
