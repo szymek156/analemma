@@ -9,27 +9,6 @@
 #include <DS3231.h>
 #include <EEPROM.h>
 
-// Analemmas:
-// #1
-// 10:00, 11:00, 12:00, 13:00, 14:00  
-// brightening: 5:00 - 7:00, 19:00 - 21:00
-// + soliticies + equinoxes
-
-// #2 One big (5, 15 minutes?), reversed
-
-// #3 several with longer exposition, 10 minutes?
-
-// #4 connected: 13:01, 13:32, 14:03, 14:34, 15:05, 15:36, 16:07, 16:38
-
-// TODO:
-// Use hardware serial for GPS instead of software
-// Use lib for finding timezone
-// Add time adjusment from gps? meh probably
-// dt.unixtime returns wrong value
-// Add hatch event every month
-// Add hatch event every week
-// Handle leap days in yearly event
-// days saving hour?
 
 // --------------   GPS    ------------------------
 SoftwareSerial serialGPS = SoftwareSerial(3, 4);
