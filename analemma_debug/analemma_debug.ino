@@ -198,9 +198,7 @@ void addEvents() {
   addEvent(dt.hour, dt.minute + 1, 30);
 }
 
-void makeTestSchedule() {
-  scheduleCounter++;
-  
+void makeTestSchedule() {  
   uint32_t start = millis();
   
   // Update globals
@@ -284,7 +282,7 @@ void updateJournal() {
   record.ts = now();
   record.openTime = nextEvent.openTime;
   record.closeTime = nextEvent.closeTime;
-  record.id = scheduleCounter;
+  record.id = scheduleCounter++;
   
   EEPROM_writeAnything(eeprom_addr, record);
   eeprom_addr += sizeof(record);

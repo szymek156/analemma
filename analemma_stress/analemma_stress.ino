@@ -195,36 +195,12 @@ void setAlarms() {
 }
 
 void addEvents() {
-  // #1
-  // 10:00, 11:00, 12:00, 13:00, 14:00  
-  // brightening: 4:00 - 6:00, 18:00 - 21:00
-  // + soliticies + equinoxes
-
-  // Brightening
-  addEvent(4, 00, 2 * SECS_PER_HOUR);
-  addEvent(18, 00, 3 * SECS_PER_HOUR);
-
-  // Analemma
-  addEvent(10, 00, 2 * SECS_PER_MIN);
-  addEvent(11, 00, 2 * SECS_PER_MIN);
-  addEvent(12, 00, 2 * SECS_PER_MIN);
-  addEvent(13, 00, 2 * SECS_PER_MIN);
-  addEvent(14, 00, 2 * SECS_PER_MIN);
-  
-  // September equinox
-  addEvent(9, 22, 3, 00, 20 * SECS_PER_HOUR); 
-
-  // March equinox
-  addEvent(3, 20, 3, 00, 20 * SECS_PER_HOUR); 
-
-  // Summer solstice
-  addEvent(6, 20, 3, 00, 20 * SECS_PER_HOUR); 
-
-  // Winter solstice
-  addEvent(12, 21, 3, 00, 20 * SECS_PER_HOUR); 
+  addEvent(dt.hour, dt.minute + 1, 30);
 }
 
-void makeSchedule() {  
+void makeTestSchedule() {  
+  uint32_t start = millis();
+  
   // Update globals
   refreshDate();
   nextEvent = HatchEvent();
@@ -232,11 +208,12 @@ void makeSchedule() {
   addEvents();
 
   setAlarms();
-  
+
   updateJournal();
-  
   Serial.println("Next open  " + timet2str(nextEvent.openTime));
-  Serial.println("Next close " + timet2str(nextEvent.closeTime));  
+  Serial.println("Next close " + timet2str(nextEvent.closeTime));
+
+  Serial.println("Schedule took[ms]: " + String(millis() - start));
 }
 
 // #######################################################################################
@@ -358,7 +335,7 @@ void setup() {
 
   refreshDate();
 
-  makeSchedule();
+  makeTestSchedule();
 
   isAlarm = false;
 
@@ -370,26 +347,19 @@ void setup() {
 void loop() {
   Serial.println("Sleep...");
   Serial.flush();
-  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+//  LowPower.powerDown(SLEEP_500MS, ADC_OFF, BOD_OFF);
 
-  refreshDate();
-
-  if (isAlarm) {
-    isAlarm = false;
+  refreshDate();    
     
-    if (clock.isAlarm1()) {
-      clock.clearAlarm1();
-      
-      toggleMotor(Close);
+  clock.clearAlarm1();
   
-      makeSchedule();
-    }
-    
-    if (clock.isAlarm2()) {
-      clock.clearAlarm2();
-      
-      toggleMotor(Open);
-    }  
-   
-  }
+  toggleMotor(Close);
+
+  makeTestSchedule();
+
+
+
+  clock.clearAlarm2();
+  
+  toggleMotor(Open);
 }
