@@ -39,6 +39,14 @@ Requirements:
 ## Code flow
 Arduino most of the time is in deep sleep mode, waiting for interrupt from RTC. Upon wakeup, shutter is opened for given period of time, then closed and again falls into deep sleep mode.
 
+### Prototyping
+![ana_proto3](https://user-images.githubusercontent.com/1136779/111817731-a78bb400-88de-11eb-8d3d-5b29c3d57c77.jpeg)
+
+### Soldering first prototype
+![ana_soldering_2](https://user-images.githubusercontent.com/1136779/111817662-904cc680-88de-11eb-81af-a365c84e41c8.jpeg)
+
+### First installation on the field
+![ana_installation_1](https://user-images.githubusercontent.com/1136779/111817737-a9557780-88de-11eb-90c0-473d67a54b1e.jpeg)
 
 # Personal Notes
 ## Programming via ISP:
