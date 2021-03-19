@@ -43,9 +43,9 @@ Arduino most of the time is in deep sleep mode, waiting for interrupt from RTC. 
 # Personal Notes
 ## Programming via ISP:
 
-https://www.iot-experiments.com/arduino-pro-mini-1mhz-1-8v/
-http://www.engbedded.com/fusecalc
-https://andreasrohner.at/posts/Electronics/How-to-fix-device-permissions-for-the-USBasp-programmer/
+* https://www.iot-experiments.com/arduino-pro-mini-1mhz-1-8v/
+* http://www.engbedded.com/fusecalc
+* https://andreasrohner.at/posts/Electronics/How-to-fix-device-permissions-for-the-USBasp-programmer/
 
 ## Check validity
 sudo ./avrdude -c usbasp -p atmega328p -C ./avrdude.conf
