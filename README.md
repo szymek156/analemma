@@ -24,10 +24,10 @@ Requirements:
 * Logging of shutter events for debugging purpouses  (Done!)
 
 ## HW
-SG90 servo to open and close the shutter
-DS3231 RTC for keeping time accurate - it has temperature time compensation and it's baked up by coin battery.
-Arduino pro mini 3.3V 8MHz for managing all of it.
-Supplied with 4 AAA batteries
+* SG90 servo to open and close the shutter
+* DS3231 RTC for keeping time accurate - it has temperature time compensation and it's baked up by coin battery.
+* Arduino pro mini 3.3V 8MHz for managing all of it.
+* Supplied with 4 AAA batteries
 
 ## Features
 * Arduino CPU clockrate is reduced to 1MHz,
@@ -38,7 +38,6 @@ Supplied with 4 AAA batteries
 
 ## Code flow
 Arduino most of the time is in deep sleep mode, waiting for interrupt from RTC. Upon wakeup, shutter is opened for given period of time, then closed and again falls into deep sleep mode.
-
 
 
 # Personal Notes
