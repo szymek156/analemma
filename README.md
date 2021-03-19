@@ -1,6 +1,6 @@
 # What is it and features
 Automation of Analemma pinhole camera. 
-Analemma is is an astronomical phenomena, it's an eitght like shape sun traces over the sky, during a year. 
+Analemma is an astronomical phenomena, an eitght like shape sun traces over the sky, during a year. 
 It's not visible by human eye, to capture it visually it's requred to take a photo of the sun every single day over the year, at the same time, from the exact same place on the Earth. Having 365 photographies of the sun and overlap them alltoghether "analemma" shape will emerge.
 Great animation from dozens of such photos was already done and shared here: 
 https://www.youtube.com/watch?v=ZS2FvljQXsk
