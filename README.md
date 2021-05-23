@@ -3,8 +3,8 @@ Automation of Analemma pinhole camera.
 Analemma is an astronomical phenomena, an eitght like shape sun traces over the sky, during a year. 
 It's not visible by human eye, to capture it visually it's requred to take a photo of the sun every single day over the year, at the same time, from the exact same place on the Earth. Having 365 photographies of the sun and overlap them alltoghether "analemma" shape will emerge.
 Great animation from dozens of such photos was already done and shared here: 
-https://www.youtube.com/watch?v=ZS2FvljQXsk
-https://www.youtube.com/watch?v=ACerzpR-bbc
+* https://www.youtube.com/watch?v=ZS2FvljQXsk
+* https://www.youtube.com/watch?v=ACerzpR-bbc
 
 Facts:
 * Highest point of the "8" is the summer solistice
@@ -38,6 +38,11 @@ Requirements:
 
 ## Code flow
 Arduino most of the time is in deep sleep mode, waiting for interrupt from RTC. Upon wakeup, shutter is opened for given period of time, then closed and again falls into deep sleep mode.
+
+### TODO:
+Add solar panel charging
+https://www.youtube.com/watch?v=37kGva3NW8w
+
 
 ### Prototyping
 ![ana_proto3](https://user-images.githubusercontent.com/1136779/111817731-a78bb400-88de-11eb-8d3d-5b29c3d57c77.jpeg)
