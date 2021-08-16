@@ -53,6 +53,9 @@ https://www.youtube.com/watch?v=37kGva3NW8w
 ### First installation on the field
 ![ana_installation_1](https://user-images.githubusercontent.com/1136779/111817737-a9557780-88de-11eb-90c0-473d67a54b1e.jpeg)
 
+### Some preliminary results
+![szymon_za](https://user-images.githubusercontent.com/1136779/129640299-f9eb8d6c-4304-48d1-8a0c-21ef8f7254ef.jpg)
+
 # Personal Notes
 ## Programming via ISP:
 
